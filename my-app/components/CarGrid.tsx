@@ -66,11 +66,10 @@ export function CarGrid() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCarId, setSelectedCarId] = useState("");
   const [prepayAvailable, setPrepayAvailable] = useState<"가능" | "불가능">("가능");
-  const [prepayAmount, setPrepayAmount] = useState(500);
+  const [prepayAmount, setPrepayAmount] = useState(0);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [creditScore, setCreditScore] = useState<"high" | "mid" | "low">("mid");
+  const [creditInfo, setCreditInfo] = useState<"high" | "mid" | "low" | "rehab">("mid");
   const [incomeType, setIncomeType] = useState<"worker" | "business" | "corporate" | "freelancer" | "other">("worker");
-  const [debtStatus, setDebtStatus] = useState<"none" | "rehab" | "bankruptcy" | "credit">("none");
   const [estimateResults, setEstimateResults] = useState<EstimateItem[]>([]);
   const [selectedCarName, setSelectedCarName] = useState("");
   const [isEstimating, setIsEstimating] = useState(false);
@@ -80,13 +79,22 @@ export function CarGrid() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 
-  function openEstimateModal(carId: string) {
+  // 모달 내 차종 검색
+  const [carSearchInput, setCarSearchInput] = useState("");
+  const [carSearchResults, setCarSearchResults] = useState<SuggestionItem[]>([]);
+  const [showCarResults, setShowCarResults] = useState(false);
+  const [isCarSearching, setIsCarSearching] = useState(false);
+  const carSearchRef = useRef<HTMLDivElement>(null);
+
+  function openEstimateModal(carId: string, carLabel = "") {
     setSelectedCarId(carId);
+    setCarSearchInput(carLabel);
+    setCarSearchResults([]);
+    setShowCarResults(false);
     setPrepayAvailable("가능");
-    setPrepayAmount(500);
-    setCreditScore("mid");
+    setPrepayAmount(0);
+    setCreditInfo("mid");
     setIncomeType("worker");
-    setDebtStatus("none");
     setEstimateResults([]);
     setSelectedCarName("");
     setEstimateError("");
@@ -94,7 +102,12 @@ export function CarGrid() {
     setIsModalOpen(true);
   }
 
-  function closeEstimateModal() { setIsModalOpen(false); }
+  function closeEstimateModal() {
+    setIsModalOpen(false);
+    setCarSearchInput("");
+    setCarSearchResults([]);
+    setShowCarResults(false);
+  }
 
   async function fetchCars(query: string) {
     setIsLoadingCars(true);
@@ -111,11 +124,21 @@ export function CarGrid() {
     setIsEstimating(true);
     setEstimateError("");
 
-    const res = await fetch("/api/estimate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ selectedCarId, creditScore, debtStatus, incomeType, prepayAvailable: prepayAvailable === "가능", prepayAmount }),
-    });
+    const [res] = await Promise.all([
+      fetch("/api/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedCarId,
+          creditScore: creditInfo === "rehab" ? "low" : creditInfo,
+          debtStatus: creditInfo === "rehab" ? "rehab" : "none",
+          incomeType,
+          prepayAvailable: prepayAvailable === "가능",
+          prepayAmount,
+        }),
+      }),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
 
     if (!res.ok) {
       setEstimateError("견적 계산 중 오류가 발생했습니다. 다시 시도해주세요.");
@@ -135,6 +158,43 @@ export function CarGrid() {
     const t = setTimeout(() => fetchCars(searchKeyword), 250);
     return () => clearTimeout(t);
   }, [searchKeyword]);
+
+  // 배너 견적확인 버튼 이벤트 수신 → 빈 폼 모달 오픈
+  useEffect(() => {
+    function handler() { openEstimateModal("", ""); }
+    window.addEventListener("ks:openEstimate", handler);
+    return () => window.removeEventListener("ks:openEstimate", handler);
+  }, []);
+
+  // 모달 내 차종 검색 debounce
+  useEffect(() => {
+    if (!carSearchInput.trim()) {
+      setCarSearchResults([]);
+      setShowCarResults(false);
+      setIsCarSearching(false);
+      return;
+    }
+    setIsCarSearching(true);
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/cars/suggest?q=${encodeURIComponent(carSearchInput)}`);
+      const data = (await res.json()) as { suggestions: SuggestionItem[] };
+      setCarSearchResults(data.suggestions ?? []);
+      setShowCarResults((data.suggestions ?? []).length > 0);
+      setIsCarSearching(false);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [carSearchInput]);
+
+  // 모달 차종 검색 외부 클릭 시 닫기
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (carSearchRef.current && !carSearchRef.current.contains(e.target as Node)) {
+        setShowCarResults(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // 자동완성 제안
   useEffect(() => {
@@ -234,7 +294,7 @@ export function CarGrid() {
                     {/* 이미지 영역 */}
                     <button
                       type="button"
-                      onClick={() => openEstimateModal(car.id)}
+                      onClick={() => openEstimateModal(car.id, `${car.brand} ${car.name}`)}
                       className="w-full text-left"
                     >
                       <div className={`relative flex h-32 items-center justify-center rounded-t-xl ${colors.bg}`}>
@@ -250,7 +310,7 @@ export function CarGrid() {
                     <div className="p-4">
                       <button
                         type="button"
-                        onClick={() => openEstimateModal(car.id)}
+                        onClick={() => openEstimateModal(car.id, `${car.brand} ${car.name}`)}
                         className="w-full text-left"
                       >
                         <p className="text-xs text-slate-400">{car.brand}</p>
@@ -260,7 +320,7 @@ export function CarGrid() {
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => openEstimateModal(car.id)}
+                          onClick={() => openEstimateModal(car.id, `${car.brand} ${car.name}`)}
                           className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-500"
                         >
                           견적 받기
@@ -285,6 +345,20 @@ export function CarGrid() {
         )}
       </div>
 
+      {/* 견적 계산 중 풀스크린 로딩 */}
+      {isEstimating && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/70 backdrop-blur-sm">
+          <div className="estimate-loader">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={i} className="estimate-loader-square" />
+            ))}
+          </div>
+          <p className="mt-10 text-sm font-semibold tracking-wide text-white">
+            맞춤 견적을 계산하고 있습니다...
+          </p>
+        </div>
+      )}
+
       {/* 견적 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-2 backdrop-blur-sm sm:p-4" onClick={closeEstimateModal}>
@@ -300,31 +374,62 @@ export function CarGrid() {
 
             {modalStep === "form" ? (
               <form className="mt-5 grid gap-4">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                <div className="grid gap-2 text-sm font-medium text-slate-700">
                   1. 차종선택
-                  <select className="input-base" value={selectedCarId} onChange={(e) => setSelectedCarId(e.target.value)}>
-                    {cars.map((car) => (
-                      <option key={car.id} value={car.id}>{car.brand} {car.name}</option>
-                    ))}
-                  </select>
-                </label>
+                  <div className="relative" ref={carSearchRef}>
+                    <input
+                      type="text"
+                      className="input-base"
+                      placeholder="차량명을 검색하세요 (예: 쏘렌토, EV6)"
+                      value={carSearchInput}
+                      onChange={(e) => {
+                        setCarSearchInput(e.target.value);
+                        setSelectedCarId("");
+                      }}
+                      onFocus={() => carSearchResults.length > 0 && setShowCarResults(true)}
+                    />
+                    {isCarSearching && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">검색 중...</span>
+                    )}
+                    {selectedCarId && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-500">✓ 선택됨</span>
+                    )}
+                    {showCarResults && carSearchResults.length > 0 && (
+                      <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                        {carSearchResults.map((item) => {
+                          const c = getCat(item.category);
+                          return (
+                            <li key={item.id}>
+                              <button
+                                type="button"
+                                onMouseDown={() => {
+                                  setSelectedCarId(item.id);
+                                  setCarSearchInput(`${item.brand} ${item.name}`);
+                                  setShowCarResults(false);
+                                }}
+                                className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-blue-50"
+                              >
+                                <span className="text-sm text-slate-800">
+                                  <span className="text-slate-400">{item.brand}</span>{" "}
+                                  <span className="font-semibold">{item.name}</span>
+                                </span>
+                                <span className={`badge text-xs ${c.badge}`}>{item.category}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
 
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  2. 신용점수
-                  <select className="input-base" value={creditScore} onChange={(e) => setCreditScore(e.target.value as "high" | "mid" | "low")}>
+                  2. 신용정보
+                  <select className="input-base" value={creditInfo} onChange={(e) => setCreditInfo(e.target.value as typeof creditInfo)}>
                     <option value="high">700점 이상</option>
                     <option value="mid">600점대</option>
                     <option value="low">500점대 이하</option>
-                  </select>
-                </label>
-
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  개인회생/파산/신복위
-                  <select className="input-base" value={debtStatus} onChange={(e) => setDebtStatus(e.target.value as "none" | "rehab" | "bankruptcy" | "credit")}>
-                    <option value="none">해당 없음</option>
-                    <option value="rehab">개인회생</option>
-                    <option value="bankruptcy">파산</option>
-                    <option value="credit">신복위</option>
+                    <option value="rehab">개인회생/파산/신복위</option>
                   </select>
                 </label>
 
@@ -354,16 +459,16 @@ export function CarGrid() {
                       <span>선납보증 금액</span>
                       <span className="font-semibold text-slate-800">{prepayAmount}만원</span>
                     </div>
-                    <input type="range" min={0} max={2000} step={10} value={prepayAmount} onChange={(e) => setPrepayAmount(Number(e.target.value))} className="w-full accent-blue-600" />
+                    <input type="range" min={0} max={500} step={10} value={prepayAmount} onChange={(e) => setPrepayAmount(Number(e.target.value))} className="w-full accent-blue-600" />
                     <div className="mt-1 flex justify-between text-xs text-slate-500">
-                      <span>0만원</span><span>2000만원</span>
+                      <span>0만원</span><span>500만원</span>
                     </div>
                   </div>
                 </div>
 
-                <button type="button" onClick={handleEstimate} disabled={isEstimating}
-                  className="mt-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500 active:bg-blue-700 disabled:bg-blue-300">
-                  {isEstimating ? "견적 계산 중..." : "견적 바로 받아보기"}
+                <button type="button" onClick={handleEstimate}
+                  className="mt-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500 active:bg-blue-700">
+                  견적 바로 받아보기
                 </button>
                 {estimateError && <p className="text-sm text-red-600">{estimateError}</p>}
               </form>
