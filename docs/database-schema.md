@@ -74,7 +74,26 @@ brands (1) ----< (N) cars
 
 ---
 
-## 5. 마이그레이션·실행 순서 팁
+## 5. `leads` (상담 신청)
+
+상담 신청 폼 제출 시 `/api/lead`가 이 테이블에 저장합니다.  
+**Supabase SQL Editor에서 먼저 실행해야 저장이 됩니다.**
+
+```sql
+create table if not exists leads (
+  id            uuid primary key default gen_random_uuid(),
+  customer_name text not null,
+  phone         text not null,
+  car_model     text,
+  budget        text,
+  note          text,
+  created_at    timestamp default now()
+);
+```
+
+---
+
+## 6. 마이그레이션·실행 순서 팁
 
 스크립트를 한 번에 돌릴 때는 대략 다음 순서를 권장한다.
 

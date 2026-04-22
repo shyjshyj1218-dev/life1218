@@ -1,4 +1,3 @@
-import { ConsultationForm } from "@/components/ConsultationForm";
 import { Banner } from "@/components/Banner";
 import { CarGrid } from "@/components/CarGrid";
 import { Footer } from "@/components/Footer";
@@ -10,20 +9,31 @@ export default function Home() {
       <Header />
       <main>
         <Banner />
-        <CarGrid />
-        <section className="py-16">
-          <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              빠른 상담 신청
-            </h2>
-            <p className="mt-3 text-sm text-slate-600">
-              기본 구조 확인용 상담 폼입니다. API 연결까지 포함되어 있습니다.
-            </p>
-            <div className="mt-6">
-              <ConsultationForm />
+
+        {/* 차량 그리드 */}
+        <section className="bg-slate-100 py-10 sm:py-14">
+          <CarGrid />
+        </section>
+
+        {/* 신뢰 지표 */}
+        <section className="section-cta py-12">
+          <div className="mx-auto w-full max-w-6xl px-6">
+            <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-4">
+              {[
+                { num: "500+", label: "누적 고객" },
+                { num: "12", label: "취급 브랜드" },
+                { num: "24h", label: "상담 응답" },
+                { num: "100%", label: "투명 견적" },
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <p className="text-3xl font-extrabold text-white sm:text-4xl">{stat.num}</p>
+                  <p className="mt-1 text-sm font-medium text-blue-200">{stat.label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
+
       </main>
       <Footer />
     </div>

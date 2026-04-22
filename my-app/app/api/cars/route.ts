@@ -3,18 +3,23 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query")?.trim() ?? "";
+  const query    = searchParams.get("query")?.trim()    ?? "";
+  const category = searchParams.get("category")?.trim() ?? "";
 
   const supabase = createSupabaseServerClient();
   let dbQuery = supabase
     .from("cars_with_brand")
     .select("id, name, category, base_price, brand_name")
     .order("brand_name", { ascending: true })
-    .order("name", { ascending: true })
+    .order("name",       { ascending: true })
     .limit(40);
 
   if (query) {
     dbQuery = dbQuery.or(`name.ilike.%${query}%,brand_name.ilike.%${query}%`);
+  }
+
+  if (category && category !== "전체") {
+    dbQuery = dbQuery.eq("category", category);
   }
 
   const { data, error } = await dbQuery;
