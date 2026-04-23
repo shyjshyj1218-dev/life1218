@@ -2,29 +2,132 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-const BANNER_IMAGE_PATH = "/banner/자동차배너.jpg";
+const SLIDES = [
+  { src: "/banner/차량2.jpg",      alt: "차량 배너 1" },
+  { src: "/banner/자동차배너.jpg",  alt: "차량 배너 2" },
+];
+
+const AUTO_PLAY_MS = 4500;
 
 export function Banner() {
+  const [current, setCurrent] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 터치 스와이프
+  const touchStartX = useRef<number | null>(null);
+
   function handleEstimateClick() {
     window.dispatchEvent(new CustomEvent("ks:openEstimate"));
   }
 
+  const goTo = useCallback((idx: number) => {
+    setCurrent((idx + SLIDES.length) % SLIDES.length);
+  }, []);
+
+  const next = useCallback(() => goTo(current + 1), [current, goTo]);
+  const prev = useCallback(() => goTo(current - 1), [current, goTo]);
+
+  // 자동 슬라이드
+  useEffect(() => {
+    if (paused) return;
+    timerRef.current = setTimeout(next, AUTO_PLAY_MS);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [current, paused, next]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) diff > 0 ? next() : prev();
+    touchStartX.current = null;
+  }
+
   return (
     <section className="bg-slate-100">
-      {/* 배너 이미지 - 여백 없이 전체 너비 */}
-      <Link href="/contact" className="block overflow-hidden bg-white">
-        <div className="relative aspect-[16/8] w-full sm:aspect-[16/5]">
-          <Image
-            src={BANNER_IMAGE_PATH}
-            alt="광고 배너"
-            fill
-            priority
-            className="object-cover"
-          />
+      {/* ── 슬라이더 ───────────────────────────────────────── */}
+      <div
+        className="relative overflow-hidden bg-white"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* 슬라이드 트랙 */}
+        <div
+          className="flex transition-transform duration-500 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {SLIDES.map((slide, i) => (
+            <div
+              key={i}
+              className="relative aspect-[16/8] w-full flex-shrink-0 sm:aspect-[16/5]"
+            >
+              <Image
+                src={slide.src}
+                alt={slide.alt}
+                fill
+                priority={i === 0}
+                className="object-cover"
+              />
+            </div>
+          ))}
         </div>
-      </Link>
-      {/* 버튼 영역 */}
+
+        {/* 좌우 화살표 */}
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); prev(); }}
+          aria-label="이전 배너"
+          className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); next(); }}
+          aria-label="다음 배너"
+          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+        </button>
+
+        {/* 하단 점(도트) 인디케이터 */}
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+          {SLIDES.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => { e.preventDefault(); goTo(i); }}
+              aria-label={`배너 ${i + 1}`}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === current
+                  ? "w-6 bg-white shadow"
+                  : "w-2 bg-white/50 hover:bg-white/80"
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* 진행 바 */}
+        {!paused && (
+          <div
+            key={current}
+            className="absolute bottom-0 left-0 h-0.5 bg-blue-400/70"
+            style={{ animation: `progress ${AUTO_PLAY_MS}ms linear forwards` }}
+          />
+        )}
+      </div>
+
+      {/* ── 버튼 영역 ─────────────────────────────────────── */}
       <div className="w-full py-6 sm:py-8">
         <div className="flex flex-col items-center justify-center gap-5 sm:flex-row sm:gap-10">
           <button
@@ -49,6 +152,13 @@ export function Banner() {
           </Link>
         </div>
       </div>
+
+      <style>{`
+        @keyframes progress {
+          from { width: 0%; }
+          to   { width: 100%; }
+        }
+      `}</style>
     </section>
   );
 }

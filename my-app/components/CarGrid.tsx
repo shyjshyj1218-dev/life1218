@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { CarDetailModal } from "./CarDetailModal";
 
 type CarItem = {
   id: string;
@@ -12,6 +12,8 @@ type CarItem = {
   price: string;
   image: string;
 };
+
+type DetailCar = { id: string; brand: string; name: string; category: string; basePrice: number };
 
 type EstimateItem = {
   id: string;
@@ -63,6 +65,7 @@ function SkeletonCard() {
 export function CarGrid() {
   const [cars, setCars] = useState<CarItem[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
+  const [detailCar, setDetailCar] = useState<DetailCar | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCarId, setSelectedCarId] = useState("");
   const [prepayAvailable, setPrepayAvailable] = useState<"가능" | "불가능">("가능");
@@ -325,12 +328,13 @@ export function CarGrid() {
                         >
                           견적 받기
                         </button>
-                        <Link
-                          href={`/cars/${car.id}`}
+                        <button
+                          type="button"
+                          onClick={() => setDetailCar({ id: car.id, brand: car.brand, name: car.name, category: car.category, basePrice: car.basePrice })}
                           className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                         >
                           상세
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -344,6 +348,18 @@ export function CarGrid() {
           </p>
         )}
       </div>
+
+      {/* 차량 상세 모달 */}
+      {detailCar && (
+        <CarDetailModal
+          car={detailCar}
+          onClose={() => setDetailCar(null)}
+          onEstimate={() => {
+            openEstimateModal(detailCar.id, `${detailCar.brand} ${detailCar.name}`);
+            setDetailCar(null);
+          }}
+        />
+      )}
 
       {/* 견적 계산 중 풀스크린 로딩 */}
       {isEstimating && (

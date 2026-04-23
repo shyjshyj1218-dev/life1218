@@ -9,11 +9,12 @@ const navItems = [
 export function Header() {
   return (
     <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-7 sm:px-6">
-        <Link href="/" className="text-xl font-bold text-slate-900">
-          KS RENTCAR
+      <div className="mx-auto flex w-full max-w-6xl items-end justify-between px-4 pb-2 pt-4 sm:px-6">
+        <Link href="/" className="flex flex-col leading-none">
+          <span className="text-5xl font-extrabold tracking-tight text-slate-900">카<span className="text-blue-600">in</span></span>
+          <span className="mt-0.5 text-xs font-medium text-slate-400">— Be in the moment</span>
         </Link>
-        <nav className="hidden gap-6 text-sm font-medium text-slate-700 md:flex">
+        <nav className="hidden gap-6 pb-1 text-sm font-medium text-slate-700 md:flex">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href} className="hover:text-blue-600">
               {item.label}
