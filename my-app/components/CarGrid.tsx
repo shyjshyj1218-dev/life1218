@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CarDetailModal } from "./CarDetailModal";
+import {
+  EstimateResultPanel,
+  type EstimateCarResult,
+} from "./EstimateResultPanel";
 
 type CarItem = {
   id: string;
@@ -14,14 +18,6 @@ type CarItem = {
 };
 
 type DetailCar = { id: string; brand: string; name: string; category: string; basePrice: number };
-
-type EstimateItem = {
-  id: string;
-  brand: string;
-  name: string;
-  category: string;
-  expectedMonthlyPayment: string;
-};
 
 type SuggestionItem = { id: string; brand: string; name: string; category: string };
 
@@ -73,8 +69,8 @@ export function CarGrid() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [creditInfo, setCreditInfo] = useState<"high" | "mid" | "low" | "rehab">("mid");
   const [incomeType, setIncomeType] = useState<"worker" | "business" | "corporate" | "freelancer" | "other">("worker");
-  const [estimateResults, setEstimateResults] = useState<EstimateItem[]>([]);
-  const [selectedCarName, setSelectedCarName] = useState("");
+  const [estimateSelectedCar, setEstimateSelectedCar] = useState<EstimateCarResult | null>(null);
+  const [estimateAlternatives, setEstimateAlternatives] = useState<EstimateCarResult[]>([]);
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateError, setEstimateError] = useState("");
   const [modalStep, setModalStep] = useState<"form" | "result">("form");
@@ -98,8 +94,8 @@ export function CarGrid() {
     setPrepayAmount(0);
     setCreditInfo("mid");
     setIncomeType("worker");
-    setEstimateResults([]);
-    setSelectedCarName("");
+    setEstimateSelectedCar(null);
+    setEstimateAlternatives([]);
     setEstimateError("");
     setModalStep("form");
     setIsModalOpen(true);
@@ -149,9 +145,12 @@ export function CarGrid() {
       return;
     }
 
-    const result = (await res.json()) as { selectedCar?: string; estimates: EstimateItem[] };
-    setSelectedCarName(result.selectedCar ?? "");
-    setEstimateResults(result.estimates ?? []);
+    const result = (await res.json()) as {
+      selectedCar?: EstimateCarResult;
+      alternatives?: EstimateCarResult[];
+    };
+    setEstimateSelectedCar(result.selectedCar ?? null);
+    setEstimateAlternatives(result.alternatives ?? []);
     setModalStep("result");
     setIsEstimating(false);
   }
@@ -378,7 +377,7 @@ export function CarGrid() {
       {/* 견적 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-2 backdrop-blur-sm sm:p-4" onClick={closeEstimateModal}>
-          <div className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-7" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-7" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 sm:text-xl">
                 {modalStep === "form" ? "맞춤 견적 정보 입력" : "맞춤 견적 결과"}
@@ -488,23 +487,14 @@ export function CarGrid() {
                 </button>
                 {estimateError && <p className="text-sm text-red-600">{estimateError}</p>}
               </form>
+            ) : estimateSelectedCar ? (
+              <EstimateResultPanel
+                selectedCar={estimateSelectedCar}
+                alternatives={estimateAlternatives}
+                onEdit={() => setModalStep("form")}
+              />
             ) : (
-              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <h4 className="text-base font-semibold text-slate-900">
-                  {selectedCarName ? `${selectedCarName} 기준 추천 결과` : "맞춤 견적 결과"}
-                </h4>
-                <ul className="mt-3 grid gap-2">
-                  {estimateResults.map((item) => (
-                    <li key={item.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {item.brand} {item.name} ({item.category}) - {item.expectedMonthlyPayment}
-                    </li>
-                  ))}
-                </ul>
-                <button type="button" onClick={() => setModalStep("form")}
-                  className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                  입력 정보 다시 수정하기
-                </button>
-              </div>
+              <p className="mt-6 text-sm text-slate-500">견적 결과를 불러오지 못했습니다.</p>
             )}
           </div>
         </div>
